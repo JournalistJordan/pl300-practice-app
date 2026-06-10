@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PL-300 Practice Studio</title>
+<meta name="description" content="Domain-weighted practice questions for the Microsoft PL-300 Power BI Data Analyst exam. Built by Jordan Foltz." />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>body { margin: 0; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+// PL-300 Practice Studio
+// Question bank weighted toward Model the Data / DAX per study plan.
+// Domains follow the official Microsoft PL-300 exam outline.
+
+const DOMAIN_INFO = {
+  "Prepare the Data": { weight: "25-30%", short: "Prepare" },
+  "Model the Data": { weight: "25-30%", short: "Model / DAX" },
+  "Visualize and Analyze": { weight: "25-30%", short: "Visualize" },
+  "Manage and Secure": { weight: "15-20%", short: "Manage" },
+};
+
+const QUESTIONS = [
+  // ----- Prepare the Data (7) -----
+  {
+    domain: "Prepare the Data",
+    difficulty: "Basic",
+    question:
+      "You have 12 monthly CSV files with identical structure in a SharePoint folder. You need to load them as a single table that automatically includes new monthly files on refresh. What should you use?",
+    options: [
+      "Append Queries, adding each new file manually",
+      "The Folder connector with Combine Files",
+      "Merge Queries on the file name column",
+      "The UNION function in DAX",
+    ],
+    correctIndex: 1,
+    explanation:
+      "The Folder connector with Combine Files builds a sample transformation that is applied to every file in the folder, so new files are picked up automatically on refresh. Append works but requires manual maintenance each month. Merge joins tables side by side like a SQL join, which is the wrong shape. UNION operates on tables already loaded into the model and does not handle file ingestion.",
+  },
+  {
+    domain: "Prepare the Data",
+    difficulty: "Intermediate",
+    question: "Which statement about query folding in Power Query is true?",
+    options: [
+      "It compresses the data model to reduce file size",
+      "It pushes transformation steps back to the data source as a native query",
+      "It works with all data sources, including CSV files",
+      "It runs after the data has been loaded into the model",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Query folding translates applied steps into the source's native query language (such as SQL), so the heavy lifting happens at the source. This improves refresh performance and is required for incremental refresh. File sources like CSV and Excel cannot fold, and certain steps (such as adding an index column) break folding for all later steps.",
+  },
+  {
+    domain: "Prepare the Data",
+    difficulty: "Intermediate",
+    question:
+      "You connect to a large Azure SQL database and need report visuals to reflect near-real-time data without importing the data into the model. Which storage mode should you choose?",
+    options: ["Import", "DirectQuery", "Dual", "Live Connection"],
+    correctIndex: 1,
+    explanation:
+      "DirectQuery sends queries to the source when visuals render, so results stay near-real-time and nothing is imported. Import caches data and only updates on refresh. Dual lets a table act as either Import or DirectQuery inside a composite model, typically to support aggregations. Live Connection applies to Analysis Services or published semantic models, not Azure SQL.",
+  },
+  {
+    domain: "Prepare the Data",
+    difficulty: "Basic",
+    question:
+      "In Power Query, you want a quick view of distinct and unique value counts under every column header. Which data profiling option should you enable?",
+    options: [
+      "Column quality",
+      "Column distribution",
+      "Column profile",
+      "Monospaced preview",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Column distribution shows a small histogram with distinct and unique counts under each column. Column quality shows the percentage of valid, error, and empty values. Column profile gives detailed statistics but only for one selected column. Remember that profiling is based on the top 1,000 rows by default; you can switch it to the entire dataset in the status bar.",
+  },
+  {
+    domain: "Prepare the Data",
+    difficulty: "Basic",
+    question:
+      "Customers and CustomerDetails share a CustomerID column. You need to add columns from CustomerDetails onto the Customers query. What should you use?",
+    options: [
+      "Append Queries",
+      "Merge Queries",
+      "Group By",
+      "Transpose",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Merge Queries performs a join on matching key columns and lets you expand the columns you need, exactly like a SQL join. Append stacks rows from tables with the same structure. Group By aggregates rows, and Transpose flips rows and columns; neither combines two related tables.",
+  },
+  {
+    domain: "Prepare the Data",
+    difficulty: "Intermediate",
+    question:
+      "Your report will move from a development server to a production server. You want the server name to be changeable in one place without editing M code in every query. What should you create?",
+    options: [
+      "A calculated column holding the server name",
+      "A Power Query parameter used in the source steps",
+      "A bookmark for each environment",
+      "A separate PBIX file per environment",
+    ],
+    correctIndex: 1,
+    explanation:
+      "A Power Query parameter referenced in each query's Source step centralizes the server name, so switching environments is one edit (and parameters can be updated in the Service). Calculated columns live in the model and cannot drive connections. Bookmarks control report view state, not data sources. Duplicate PBIX files create a maintenance problem.",
+  },
+  {
+    domain: "Prepare the Data",
+    difficulty: "Basic",
+    question:
+      "After changing a column type to Decimal Number, some cells show Error. You must keep all rows but treat the failed values as blank. What should you do?",
+    options: [
+      "Use Remove Errors on the column",
+      "Use Replace Errors and replace with null",
+      "Delete the column and re-add it",
+      "Change the column type to Text",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Replace Errors substitutes a value of your choice (null here) while keeping every row. Remove Errors deletes the entire row containing the error, which violates the requirement. Re-adding the column repeats the same conversion failure, and switching to Text avoids the error but leaves the column unusable for numeric analysis.",
+  },
+
+  // ----- Model the Data / DAX (14) -----
+  {
+    domain: "Model the Data",
+    difficulty: "Basic",
+    question:
+      "You need a total sales calculation that responds dynamically to slicers and filters in the report. Which should you create?",
+    options: [
+      "A calculated column",
+      "A measure",
+      "A calculated table",
+      "A Power Query custom column",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Measures are evaluated at query time inside the current filter context, so they respond to slicers automatically and consume no storage. Calculated columns and Power Query columns are computed once at refresh and stored row by row; they cannot react to filters. A calculated table materializes a whole table, which is unnecessary here.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Intermediate",
+    code: "Revenue = SUMX ( Sales, Sales[Quantity] * Sales[Unit Price] )",
+    question:
+      "Why is SUMX required here instead of SUM?",
+    options: [
+      "SUM cannot be used inside a measure",
+      "SUMX iterates row by row, evaluating the expression for each row before summing",
+      "SUMX is faster than SUM in every situation",
+      "SUM ignores filter context",
+    ],
+    correctIndex: 1,
+    explanation:
+      "SUM accepts only a single column, so it cannot multiply two columns together. SUMX is an iterator: it creates a row context over Sales, evaluates Quantity times Unit Price for each row, then sums the results. SUM works fine in measures and respects filter context; and iterators are not universally faster, they are simply necessary for row-level expressions.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Intermediate",
+    code: "Bikes Sales = CALCULATE ( [Total Sales], Products[Category] = \"Bikes\" )",
+    question:
+      "A user selects \"Clothing\" in a Category slicer. What does this measure return?",
+    options: [
+      "Blank, because the filters conflict",
+      "Sales for Bikes, because the filter argument replaces the existing filter on Category",
+      "Sales for Clothing, because slicers always win",
+      "Sales for both Bikes and Clothing combined",
+    ],
+    correctIndex: 1,
+    explanation:
+      "A Boolean filter argument in CALCULATE replaces any existing filter on that same column. The slicer's Clothing filter on Products[Category] is overwritten by the Bikes condition, so the measure returns Bikes sales regardless of the slicer. This replace behavior is one of the most tested CALCULATE concepts on the exam.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Intermediate",
+    question:
+      "You need a measure that shows each product's sales as a percentage of sales for ALL products, ignoring any product filters. Which expression is correct?",
+    options: [
+      "DIVIDE ( [Total Sales], CALCULATE ( [Total Sales], ALL ( 'Product' ) ) )",
+      "DIVIDE ( [Total Sales], [Total Sales] )",
+      "DIVIDE ( [Total Sales], CALCULATE ( [Total Sales], ALLSELECTED ( 'Product' ) ) )",
+      "[Total Sales] / SUM ( 'Product'[ListPrice] )",
+    ],
+    correctIndex: 0,
+    explanation:
+      "ALL('Product') removes every filter from the Product table, so the denominator is the grand total across all products. Dividing a measure by itself always returns 1. ALLSELECTED respects external selections like slicers, which gives percent of the visible selection rather than percent of all products. The last option divides by an unrelated column.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Basic",
+    question:
+      "Why is a star schema generally preferred over a single flat table or a snowflake design in Power BI?",
+    options: [
+      "It stores more rows than other designs",
+      "Fact and dimension separation yields simpler DAX, clear one-to-many filter paths, and better engine performance",
+      "It eliminates the need for relationships",
+      "It is the only schema that supports DirectQuery",
+    ],
+    correctIndex: 1,
+    explanation:
+      "A star schema puts measurable events in a fact table and descriptive attributes in dimension tables connected by one-to-many relationships. Filters flow predictably from dimensions to facts, DAX stays simpler, and the VertiPaq engine compresses and scans this shape efficiently. Flat tables bloat memory through repetition; snowflakes add join hops that complicate the model.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Advanced",
+    question:
+      "Your SAMEPERIODLASTYEAR measure returns blank or incorrect values. What is the most likely fix?",
+    options: [
+      "Replace it with a calculated column",
+      "Use a contiguous date table marked as a date table and relate it to the fact table",
+      "Convert the date column to text",
+      "Enable bidirectional filtering on all relationships",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Time intelligence functions require a proper date table: one row per day, no gaps, covering all years in the data, marked as a date table, and related to the fact table. Without it, year-over-year comparisons break. Calculated columns cannot replicate dynamic time intelligence, text dates lose date semantics, and bidirectional filtering is unrelated to this problem.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Advanced",
+    question:
+      "Sales has both OrderDate and ShipDate related to a single Date table, but only one relationship can be active. You need a measure that calculates sales by ship date. What should you use?",
+    options: [
+      "CROSSFILTER to reverse the active relationship",
+      "USERELATIONSHIP inside CALCULATE to activate the ShipDate relationship",
+      "A second copy of the fact table",
+      "TREATAS on the OrderDate column",
+    ],
+    correctIndex: 1,
+    explanation:
+      "USERELATIONSHIP ( Sales[ShipDate], 'Date'[Date] ) inside CALCULATE activates the inactive relationship for that calculation only. This is the standard role-playing date pattern. CROSSFILTER changes filter direction, not which relationship is active. Duplicating the fact table wastes memory, and TREATAS is a heavier pattern meant for cases with no physical relationship.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Basic",
+    question:
+      "You need to divide Profit by Revenue but some months have zero revenue. Which approach follows DAX best practice?",
+    options: [
+      "Profit / Revenue with no changes",
+      "DIVIDE ( [Profit], [Revenue] )",
+      "IFERROR ( [Profit] / [Revenue], -1 )",
+      "Filter out all zero-revenue months in Power Query",
+    ],
+    correctIndex: 1,
+    explanation:
+      "DIVIDE handles division by zero or blank safely, returning blank by default or an optional third-argument alternate result, and it is optimized by the engine. The raw slash operator throws errors on zero. IFERROR works but is slower and masks other genuine errors. Deleting rows in Power Query distorts the dataset to dodge a formula problem.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Intermediate",
+    question:
+      "In a calculated column on the Sales table (the many side), you need to pull Category from the related Product table (the one side). Which function should you use?",
+    options: ["RELATEDTABLE", "RELATED", "LOOKUPVALUE only", "USERELATIONSHIP"],
+    correctIndex: 1,
+    explanation:
+      "RELATED follows a many-to-one relationship from the many side to fetch a single value from the one side, which is exactly this scenario. RELATEDTABLE goes the opposite direction and returns a table of related rows. LOOKUPVALUE works without a relationship but is unnecessary and slower when one exists. USERELATIONSHIP activates inactive relationships and returns nothing by itself.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Intermediate",
+    question: "What is a key benefit of using VAR in a DAX measure?",
+    options: [
+      "It creates a reusable calculated column",
+      "The variable is evaluated once and reused, improving readability and performance",
+      "It changes the filter context of the measure",
+      "It is required for all measures longer than one line",
+    ],
+    correctIndex: 1,
+    explanation:
+      "A variable is evaluated once, in the context where it is defined, and can be referenced multiple times without re-evaluation. That improves both performance and readability, and it locks in a value before context changes later in the formula. Variables do not create columns, do not themselves alter filter context, and are never syntactically required.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Advanced",
+    question:
+      "A report has become slow and some visuals show ambiguity errors after every relationship was set to bidirectional (Both). What is the best practice?",
+    options: [
+      "Set relationships to single direction and use CROSSFILTER in specific measures when needed",
+      "Delete the dimension tables",
+      "Convert all measures to calculated columns",
+      "Enable bidirectional filtering on even more relationships",
+    ],
+    correctIndex: 0,
+    explanation:
+      "Bidirectional filtering should be the exception, not the default: it creates ambiguous filter paths and degrades performance. Keep relationships single direction from dimension to fact, and when a specific calculation needs reversed flow, apply CROSSFILTER inside that measure. The legitimate standing use case is a bridge table in a many-to-many design.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Advanced",
+    code: "Total Purchases = CALCULATE ( SUM ( Sales[Amount] ) )",
+    question:
+      "As a calculated column on the Customer table, this returns each customer's own purchase total rather than the grand total. Why?",
+    options: [
+      "CALCULATE always filters to the current table",
+      "Context transition: CALCULATE converts the row context into an equivalent filter context",
+      "SUM automatically groups by customer",
+      "It is a coincidence of how the data is sorted",
+    ],
+    correctIndex: 1,
+    explanation:
+      "This is context transition. A calculated column has row context but no filter context. Wrapping an expression in CALCULATE transforms the current row's values into filters, so the sum is filtered to the customer on that row. Without CALCULATE, the column would show the same grand total on every row. This concept appears frequently in the harder exam questions.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Advanced",
+    question:
+      "You need sales where the amount exceeds 100. Which CALCULATE filter is most efficient?",
+    options: [
+      "CALCULATE ( [Sales], FILTER ( Sales, Sales[Amount] > 100 ) )",
+      "CALCULATE ( [Sales], Sales[Amount] > 100 )",
+      "SUMX ( Sales, IF ( Sales[Amount] > 100, Sales[Amount], 0 ) )",
+      "A visual-level filter on every report page",
+    ],
+    correctIndex: 1,
+    explanation:
+      "The Boolean filter operates on a single column and internally expands to FILTER ( ALL ( Sales[Amount] ), ... ), which scans only that column. Iterating the entire Sales table with FILTER ( Sales, ... ) materializes every column of every row and is significantly slower. The SUMX version returns zeros instead of blanks and still scans everything. Visual filters change report behavior, not the measure definition.",
+  },
+  {
+    domain: "Model the Data",
+    difficulty: "Basic",
+    question:
+      "Product and Sales have a one-to-many relationship with single-direction filtering. Which way does filtering flow by default?",
+    options: [
+      "Sales filters Product",
+      "Product filters Sales",
+      "Both directions equally",
+      "Neither, until a measure activates the relationship",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Filters flow from the one side to the many side: selecting a product filters its sales rows. The reverse requires bidirectional filtering or CROSSFILTER. Active relationships propagate filters automatically; no measure is needed to switch them on. This dimension-filters-fact flow is the backbone of star schema behavior.",
+  },
+
+  // ----- Visualize and Analyze (6) -----
+  {
+    domain: "Visualize and Analyze",
+    difficulty: "Basic",
+    question:
+      "Users want to right-click a product in a summary visual and jump to a detail page filtered to that product. What should you configure?",
+    options: [
+      "A drillthrough page",
+      "Drill down on the visual hierarchy",
+      "A tooltip page",
+      "A new bookmark per product",
+    ],
+    correctIndex: 0,
+    explanation:
+      "A drillthrough page with Product in its drillthrough field well enables right-click navigation that carries the selected product's filter to the detail page. Drill down moves through levels of a hierarchy inside the same visual. Tooltip pages appear on hover and cannot be navigated to. One bookmark per product does not scale and is static.",
+  },
+  {
+    domain: "Visualize and Analyze",
+    difficulty: "Basic",
+    question:
+      "You need to show how the composition of sales across four regions changes over time, emphasizing each region's contribution to the total. Which visual fits best?",
+    options: [
+      "Pie chart",
+      "Stacked area chart",
+      "Scatter chart",
+      "KPI card",
+    ],
+    correctIndex: 1,
+    explanation:
+      "A stacked area chart shows part-to-whole composition along a continuous time axis, which is exactly the requirement. A pie chart shows composition at a single point in time. A scatter chart shows correlation between two measures. A KPI card shows one value against a target with no compositional detail.",
+  },
+  {
+    domain: "Visualize and Analyze",
+    difficulty: "Intermediate",
+    question:
+      "You want buttons that switch the report between a summary view and a detail view by showing and hiding visuals with specific filter states. What should you use?",
+    options: [
+      "Bookmarks combined with the Selection pane and buttons",
+      "Drillthrough filters",
+      "Sync slicers",
+      "Conditional formatting",
+    ],
+    correctIndex: 0,
+    explanation:
+      "Bookmarks capture the state of a page, including filters, slicers, and visual visibility from the Selection pane, and buttons can apply a bookmark on click. That combination builds toggle-style navigation. Drillthrough moves between pages based on a data point, sync slicers share slicer state across pages, and conditional formatting styles values rather than controlling layout.",
+  },
+  {
+    domain: "Visualize and Analyze",
+    difficulty: "Basic",
+    question:
+      "A bar chart should display only the five products with the highest sales. What is the simplest approach?",
+    options: [
+      "A Top N visual-level filter using Sales as the by-value",
+      "Deleting the other products in Power Query",
+      "A bookmark that hides the other bars",
+      "Manually selecting five products in a slicer",
+    ],
+    correctIndex: 0,
+    explanation:
+      "The filter pane's Top N filter type, set to 5 by the Sales measure, dynamically keeps the current top five as data changes. Deleting rows at the source removes products from the entire model. Bookmarks and manual slicer selections are static and break the moment rankings shift. A RANKX measure can also work but is more effort for the same result.",
+  },
+  {
+    domain: "Visualize and Analyze",
+    difficulty: "Intermediate",
+    question:
+      "Stakeholders ask which factors most influence customers churning. Which AI visual should you use?",
+    options: [
+      "Key influencers",
+      "Decomposition tree",
+      "Q&A visual",
+      "Smart narrative",
+    ],
+    correctIndex: 0,
+    explanation:
+      "The Key influencers visual analyzes which fields statistically drive a target outcome, such as churn equals yes, and ranks their impact. The decomposition tree supports ad hoc drilling of an aggregate across chosen dimensions but does not rank drivers statistically. Q&A answers natural language questions, and Smart narrative generates text summaries of visuals.",
+  },
+  {
+    domain: "Visualize and Analyze",
+    difficulty: "Basic",
+    question:
+      "A date slicer on page 1 should also filter pages 2 and 3 automatically. What should you configure?",
+    options: [
+      "Sync slicers from the View ribbon",
+      "Copy the slicer and hope selections match",
+      "A drillthrough filter on each page",
+      "Edit interactions on every visual",
+    ],
+    correctIndex: 0,
+    explanation:
+      "The Sync slicers pane lets one slicer apply its selection across chosen pages, with separate control over visibility per page. Copied slicers do not share state by themselves. Drillthrough passes a filter only on navigation, and edit interactions controls visual-to-visual filtering within a single page.",
+  },
+
+  // ----- Manage and Secure (3) -----
+  {
+    domain: "Manage and Secure",
+    difficulty: "Intermediate",
+    question:
+      "You implement row-level security so regional managers see only their region. Where are roles defined and where are members assigned?",
+    options: [
+      "Roles and members are both defined in the Power BI Service",
+      "Roles with DAX filters are defined in Power BI Desktop; members are assigned in the Service",
+      "Roles are defined in Power Query; members in Desktop",
+      "RLS requires Azure SQL database permissions only",
+    ],
+    correctIndex: 1,
+    explanation:
+      "The standard RLS workflow: create roles and their DAX filter expressions in Power BI Desktop under Modeling, then publish and assign users or groups to those roles in the semantic model's Security settings in the Service. Power Query has no role concept, and while source-level security exists, PL-300 tests the Desktop-plus-Service pattern.",
+  },
+  {
+    domain: "Manage and Secure",
+    difficulty: "Intermediate",
+    question:
+      "A user must be able to view workspace content, and row-level security must apply to them. Which workspace role should they have?",
+    options: ["Admin", "Member", "Contributor", "Viewer"],
+    correctIndex: 3,
+    explanation:
+      "RLS is enforced only for users with the Viewer role (or app consumers). Admin, Member, and Contributor roles carry edit permissions on the workspace content and therefore bypass RLS entirely. Granting a higher role than needed is both a security risk and a common trap answer on the exam.",
+  },
+  {
+    domain: "Manage and Secure",
+    difficulty: "Basic",
+    question:
+      "A published report imports data from an on-premises SQL Server. What is required for scheduled refresh to work in the Power BI Service?",
+    options: [
+      "An on-premises data gateway",
+      "A premium capacity workspace",
+      "Converting the report to DirectQuery",
+      "Nothing; refresh works automatically",
+    ],
+    correctIndex: 0,
+    explanation:
+      "The Power BI Service runs in the cloud and cannot reach on-premises servers directly. An on-premises data gateway bridges that connection for scheduled refresh. Premium capacity affects refresh frequency limits and features, not basic connectivity. DirectQuery against on-premises sources still requires a gateway, so converting solves nothing.",
+  },
+];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const css = `
+  .pl3-root {
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #2b2b2b;
+    background: #faf8f3;
+    min-height: 100vh;
+    line-height: 1.55;
+  }
+  .pl3-root h1, .pl3-root h2, .pl3-root h3, .pl3-root .pl3-ui {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .pl3-header {
+    background: #1B4332;
+    color: #ffffff;
+    padding: 28px 24px 22px;
+    border-bottom: 4px solid #D4A820;
+  }
+  .pl3-header h1 { margin: 0; font-size: 26px; letter-spacing: 0.5px; }
+  .pl3-header p { margin: 6px 0 0; color: #cfe3d7; font-size: 14px; }
+  .pl3-wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  .pl3-card {
+    background: #ffffff;
+    border: 1px solid #e3ded2;
+    border-radius: 10px;
+    padding: 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(27, 67, 50, 0.07);
+  }
+  .pl3-eyebrow {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: #1B4332;
+    font-weight: bold;
+    margin-bottom: 6px;
+  }
+  .pl3-btn {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #1B4332;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 22px;
+    font-size: 15px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .pl3-btn:hover { background: #14532d; }
+  .pl3-btn:focus-visible { outline: 3px solid #D4A820; outline-offset: 2px; }
+  .pl3-btn.gold { background: #D4A820; color: #1f1a05; }
+  .pl3-btn.gold:hover { background: #c39a17; }
+  .pl3-btn.ghost {
+    background: transparent;
+    color: #1B4332;
+    border: 2px solid #1B4332;
+  }
+  .pl3-mode-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+  .pl3-domain-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  .pl3-domain-table td {
+    padding: 8px 6px;
+    border-bottom: 1px solid #eee8da;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .pl3-domain-table td:last-child { text-align: right; color: #6b6557; }
+  .pl3-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: Georgia, serif;
+    font-size: 15px;
+    background: #fdfcf9;
+    border: 2px solid #e3ded2;
+    border-radius: 8px;
+    padding: 13px 15px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    color: #2b2b2b;
+  }
+  .pl3-option:hover:not(:disabled) { border-color: #1B4332; }
+  .pl3-option:focus-visible { outline: 3px solid #D4A820; outline-offset: 1px; }
+  .pl3-option:disabled { cursor: default; }
+  .pl3-option.correct { border-color: #1B4332; background: #ecf5ef; }
+  .pl3-option.wrong { border-color: #b3413a; background: #faecea; }
+  .pl3-option.dim { opacity: 0.55; }
+  .pl3-code {
+    font-family: 'Courier New', Courier, monospace;
+    background: #1B4332;
+    color: #f3edd8;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13.5px;
+    overflow-x: auto;
+    margin: 10px 0 14px;
+    white-space: pre-wrap;
+  }
+  .pl3-callout {
+    border-left: 5px solid #D4A820;
+    background: #fbf6e7;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 16px;
+    margin-top: 14px;
+    font-size: 14.5px;
+  }
+  .pl3-callout strong { font-family: Arial, Helvetica, sans-serif; }
+  .pl3-progress-track {
+    height: 8px;
+    background: #e3ded2;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 14px 0 4px;
+  }
+  .pl3-progress-fill { height: 100%; background: #D4A820; transition: width 0.3s; }
+  .pl3-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12.5px;
+    color: #6b6557;
+    margin-bottom: 4px;
+  }
+  .pl3-bar-row { margin-bottom: 14px; }
+  .pl3-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13.5px;
+    margin-bottom: 4px;
+  }
+  .pl3-bar-track { height: 14px; background: #e3ded2; border-radius: 7px; overflow: hidden; }
+  .pl3-bar-fill { height: 100%; background: #1B4332; border-radius: 7px; }
+  .pl3-bar-fill.weak { background: #b3413a; }
+  .pl3-score-big {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 48px;
+    font-weight: bold;
+    color: #1B4332;
+    margin: 4px 0 0;
+  }
+  .pl3-tag {
+    display: inline-block;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11.5px;
+    font-weight: bold;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    background: #ecf5ef;
+    color: #1B4332;
+    border-radius: 20px;
+    padding: 3px 10px;
+    margin-right: 6px;
+  }
+  @media (max-width: 480px) {
+    .pl3-header h1 { font-size: 21px; }
+    .pl3-card { padding: 16px; }
+    .pl3-score-big { font-size: 38px; }
+  }
+`;
+
+function PL300PracticeApp() {
+  const [screen, setScreen] = useState("home");
+  const [mode, setMode] = useState("");
+  const [quiz, setQuiz] = useState([]);
+  const [qIndex, setQIndex] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [answers, setAnswers] = useState([]);
+
+  const startQuiz = (chosenMode) => {
+    let pool;
+    if (chosenMode === "dax") {
+      pool = QUESTIONS.filter((q) => q.domain === "Model the Data");
+    } else if (chosenMode === "full") {
+      pool = QUESTIONS;
+    } else {
+      pool = QUESTIONS.filter((q) => q.domain === chosenMode);
+    }
+    setQuiz(shuffle(pool));
+    setMode(chosenMode);
+    setQIndex(0);
+    setSelected(null);
+    setAnswers([]);
+    setScreen("quiz");
+  };
+
+  const chooseAnswer = (i) => {
+    if (selected !== null) return;
+    setSelected(i);
+    setAnswers((prev) => [...prev, { q: quiz[qIndex], picked: i }]);
+  };
+
+  const next = () => {
+    if (qIndex + 1 >= quiz.length) {
+      setScreen("results");
+    } else {
+      setQIndex(qIndex + 1);
+      setSelected(null);
+    }
+  };
+
+  const modeLabel =
+    mode === "full" ? "Full Practice" : mode === "dax" ? "DAX Focus" : mode;
+
+  // ---------- Home ----------
+  if (screen === "home") {
+    return (
+      <div className="pl3-root">
+        <style>{css}</style>
+        <header className="pl3-header">
+          <h1>PL-300 Practice Studio</h1>
+          <p>Domain-weighted practice for the Microsoft Power BI Data Analyst exam</p>
+        </header>
+        <div className="pl3-wrap">
+          <div className="pl3-card">
+            <div className="pl3-eyebrow">Exam blueprint</div>
+            <h2 style={{ marginTop: 0, fontSize: 19 }}>
+              Four domains, weighted like the real exam
+            </h2>
+            <table className="pl3-domain-table">
+              <tbody>
+                {Object.entries(DOMAIN_INFO).map(([d, info]) => (
+                  <tr key={d}>
+                    <td>{d}</td>
+                    <td>
+                      {QUESTIONS.filter((q) => q.domain === d).length} questions
+                      &nbsp;|&nbsp; exam weight {info.weight}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={{ fontSize: 14, color: "#6b6557", marginBottom: 0 }}>
+              This bank is intentionally heavier on Model the Data because DAX and
+              modeling concepts carry the hardest scenario questions on the exam.
+            </p>
+          </div>
+
+          <div className="pl3-card">
+            <div className="pl3-eyebrow">Choose a session</div>
+            <h2 style={{ marginTop: 0, fontSize: 19 }}>Start practicing</h2>
+            <div className="pl3-mode-row">
+              <button className="pl3-btn" onClick={() => startQuiz("full")}>
+                Full Practice ({QUESTIONS.length} questions)
+              </button>
+              <button className="pl3-btn gold" onClick={() => startQuiz("dax")}>
+                DAX Focus (
+                {QUESTIONS.filter((q) => q.domain === "Model the Data").length}{" "}
+                questions)
+              </button>
+            </div>
+            <div className="pl3-mode-row">
+              {Object.keys(DOMAIN_INFO)
+                .filter((d) => d !== "Model the Data")
+                .map((d) => (
+                  <button
+                    key={d}
+                    className="pl3-btn ghost"
+                    onClick={() => startQuiz(d)}
+                  >
+                    {DOMAIN_INFO[d].short} only
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Quiz ----------
+  if (screen === "quiz") {
+    const q = quiz[qIndex];
+    const progress = ((qIndex + (selected !== null ? 1 : 0)) / quiz.length) * 100;
+    return (
+      <div className="pl3-root">
+        <style>{css}</style>
+        <header className="pl3-header">
+          <h1>PL-300 Practice Studio</h1>
+          <p>{modeLabel} session</p>
+        </header>
+        <div className="pl3-wrap">
+          <div className="pl3-meta pl3-ui">
+            <span>
+              Question {qIndex + 1} of {quiz.length}
+            </span>
+            <span>
+              {q.domain} &middot; {q.difficulty}
+            </span>
+          </div>
+          <div className="pl3-progress-track">
+            <div className="pl3-progress-fill" style={{ width: progress + "%" }} />
+          </div>
+
+          <div className="pl3-card">
+            <p style={{ marginTop: 0, fontSize: 16.5 }}>{q.question}</p>
+            {q.code && <div className="pl3-code">{q.code}</div>}
+            {q.options.map((opt, i) => {
+              let cls = "pl3-option";
+              if (selected !== null) {
+                if (i === q.correctIndex) cls += " correct";
+                else if (i === selected) cls += " wrong";
+                else cls += " dim";
+              }
+              return (
+                <button
+                  key={i}
+                  className={cls}
+                  disabled={selected !== null}
+                  onClick={() => chooseAnswer(i)}
+                >
+                  {String.fromCharCode(65 + i)}. {opt}
+                </button>
+              );
+            })}
+
+            {selected !== null && (
+              <div className="pl3-callout">
+                <strong>
+                  {selected === q.correctIndex ? "Correct. " : "Not quite. "}
+                </strong>
+                {q.explanation}
+              </div>
+            )}
+
+            {selected !== null && (
+              <div style={{ marginTop: 16, textAlign: "right" }}>
+                <button className="pl3-btn" onClick={next}>
+                  {qIndex + 1 >= quiz.length ? "See results" : "Next question"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Results ----------
+  const total = answers.length;
+  const correct = answers.filter((a) => a.picked === a.q.correctIndex).length;
+  const pct = total ? Math.round((correct / total) * 100) : 0;
+
+  const domainStats = Object.keys(DOMAIN_INFO)
+    .map((d) => {
+      const inDomain = answers.filter((a) => a.q.domain === d);
+      if (inDomain.length === 0) return null;
+      const right = inDomain.filter((a) => a.picked === a.q.correctIndex).length;
+      return {
+        domain: d,
+        right,
+        count: inDomain.length,
+        pct: Math.round((right / inDomain.length) * 100),
+      };
+    })
+    .filter(Boolean);
+
+  const weakest =
+    domainStats.length > 1
+      ? domainStats.reduce((min, s) => (s.pct < min.pct ? s : min), domainStats[0])
+      : null;
+
+  return (
+    <div className="pl3-root">
+      <style>{css}</style>
+      <header className="pl3-header">
+        <h1>PL-300 Practice Studio</h1>
+        <p>{modeLabel} session results</p>
+      </header>
+      <div className="pl3-wrap">
+        <div className="pl3-card" style={{ textAlign: "center" }}>
+          <div className="pl3-eyebrow">Session score</div>
+          <div className="pl3-score-big">{pct}%</div>
+          <p style={{ marginTop: 4, color: "#6b6557" }}>
+            {correct} of {total} correct
+          </p>
+          <span className="pl3-tag">
+            {pct >= 80
+              ? "Exam ready pace"
+              : pct >= 65
+              ? "Closing the gap"
+              : "Keep building"}
+          </span>
+        </div>
+
+        <div className="pl3-card">
+          <div className="pl3-eyebrow">Domain diagnostic</div>
+          <h2 style={{ marginTop: 0, fontSize: 19 }}>Where to focus next</h2>
+          {domainStats.map((s) => (
+            <div className="pl3-bar-row" key={s.domain}>
+              <div className="pl3-bar-label">
+                <span>{s.domain}</span>
+                <span>
+                  {s.right}/{s.count} ({s.pct}%)
+                </span>
+              </div>
+              <div className="pl3-bar-track">
+                <div
+                  className={
+                    "pl3-bar-fill" +
+                    (weakest && s.domain === weakest.domain && s.pct < 80
+                      ? " weak"
+                      : "")
+                  }
+                  style={{ width: Math.max(s.pct, 4) + "%" }}
+                />
+              </div>
+            </div>
+          ))}
+          {weakest && weakest.pct < 80 && (
+            <div className="pl3-callout">
+              <strong>Study recommendation: </strong>
+              Your lowest domain this session was {weakest.domain} at{" "}
+              {weakest.pct}%. Spend your next study block there, then rerun a
+              focused session to measure the change.
+            </div>
+          )}
+        </div>
+
+        <div className="pl3-mode-row">
+          <button className="pl3-btn" onClick={() => startQuiz(mode)}>
+            Retry this session
+          </button>
+          <button className="pl3-btn ghost" onClick={() => setScreen("home")}>
+            Back to home
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<PL300PracticeApp />);
+
+</script>
+</body>
+</html>
